@@ -1,0 +1,141 @@
+---
+title: "Practice Data Analysis Larval Traits"
+output: html_notebook
+---
+
+Here we will practice some analyses to use on the larval fish morphology data. 
+
+We're using a R Markdown Document. Here we can type freely, within chunks (grey) to type normal text as notes we have to start the line with a hash (#)
+
+```{r setup}
+#load packages or apps
+#install.packages("tidyverse") 
+library(lubridate)
+library(tidyverse) #if you don't have it installed, you'll have to do that first by
+```
+
+Bring in data stored as csvs
+```{r load csvs}
+photos <- read.csv("DataSheetPhotos_Practice.csv") #You'll have to change this path to match your machine, also note that for Windows, you will need to use backslashes instead of forward slashes (\ versus /)
+measurements <- read.csv("Measurements_practice.csv")
+
+icthy_data <- read.csv("icthy_data_Practice.csv")
+
+
+```
+
+Now we've loaded in three CSVs to data frames. You'll see them in your Environment in the top right. 
+
+Now, let's take a look at these! 
+```{r looking at data frames}
+View(photos) #let's view it like a spreadsheet above
+summary(photos) #overall summary and statistics
+str(photos) #structure, are the columns in the right format?
+
+#check this out for all of the data frames
+#numerical columns should be <int> or <dbl>
+```
+It appears that photos has some extra useless columns, let's delete those
+```{r delete extra columns }
+View(photos)
+#keep columns 1:8
+photos_reduced <- photos[,1:7] #this tells us to make a new data frame extracting all rows from columns 1:8 (column = after comma, row = before comma]) in photos data frame
+```
+
+We also don't want the data from icthy_data that's not for our focal species
+```{r}
+summary(factor(icthy_data$Species))
+
+icthy_data_reduced <- icthy_data %>% #first, access icthy_data
+  filter(Species == "dentatus" | Species == "undulatus") #then, filter out only rows where Species is eitheer dentatus or undulatus
+
+summary(factor(icthy_data_reduced$Species)) #success!
+```
+
+
+We now need to merge these data frames together, which columns are the same across data frames?
+
+```{r check column names}
+colnames(photos_reduced)
+colnames(measurements)
+colnames(icthy_data_reduced)
+
+#it can also be helpful to look at the first few rows
+head(photos_reduced)
+head(measurements)
+head(icthy_data_reduced)
+
+#check that all date columns are correctly formatted
+photos_reduced$Tow.Date <- mdy(photos_reduced$Tow.Date) #tells R to interpret this column as a date in month, day, year format
+
+#note that $ calls a specific column. RStudio is awesome, because once you start typing a column name it will give you options in a drop down menu
+
+head(photos_reduced) #note it now says <date> under Tow.Date
+
+#this needs to be done for all columns
+```
+
+Match Spp to Genus Spp
+-In photos_reduced, species is under spp, but in icthy data species is under genus and species, we have to match them
+```{r matching spp genus}
+#make new Species column in photos_reduced data frame
+photos_reduced$Species <- as.factor(word(photos_reduced$Spp,2,2, sep = " ")) #pull out species
+#want to know how this is working?
+?word
+#make new Genus column in photos_reduced data frame
+photos_reduced$Genus <- as.factor(word(photos_reduced$Spp,1,1, sep = " "))
+  
+```
+
+Now, I've noticed that we use Tow_ID in photo data frame, but Tow in icthy_data_reduced data frame, let's match
+
+```{r tow tow_id}
+icthy_data_reduced$Tow_ID <- icthy_data_reduced$Tow
+```
+
+Time to merge! 
+
+```{r merge}
+icthy_data_photos <- inner_join(photos_reduced, icthy_data_reduced, by = c("Tow_ID", "Species", "Genus")) #first merge
+
+full_merge_icthyoplankton <- inner_join(icthy_data_photos, measurements, by = c("ï..Code"))
+
+View(full_merge_icthyoplankton)
+nrow(full_merge_icthyoplankton)
+```
+
+#Now it's time for analyses
+A good way to  start each analysis is to ask a specific question. 
+
+1. How does sample # change by date and location for each species?
+```{r sample versus date}
+ggplot(data = full_merge_icthyoplankton) +
+  geom_point(aes(x = Tow.Date, y = Number, color = Species)) +
+  facet_wrap(~Location) +
+  theme_classic()
+```
+2. Does standard length vary by date? Is this pattern different for different locations and species?
+```{r traits versus dates}
+ggplot(data = full_merge_icthyoplankton) +
+  geom_boxplot(aes(x= Tow.Date, y = SL, color = Species)) +
+  facet_wrap(~Location) +
+  theme_classic()
+
+summary(full_merge_icthyoplankton)
+
+full_merge_icthyoplankton
+```
+3. Now, we can ask a ton of different questions 
+
+Variables to include:
+- Species
+- Location
+- Morphological traits
+- Number of fish
+- Temperature
+- Date
+```{r}
+mtcars
+
+```
+
