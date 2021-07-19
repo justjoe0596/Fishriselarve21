@@ -1,0 +1,40 @@
+---
+title: "Larvalfishdata"
+output: html_notebook
+---
+```{r setup}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+nj_temp <- read.csv("env_17.csv") #nj excel file of catch temperature
+nc_temp <- read.csv("NOAA_beaufort_temp.csv") #nc excel file of catch temperature
+nj_popcatchid <- read.csv("icthy_data_micrundu_17.csv") #nj file of catch number and id 
+nc_popcatchid <- read.csv("NC_Fish_Spp_ID_2017_Micrundu.csv") # nc file of catch number and id 
+njfishmeasurements <- read.csv("Njfishdataedit.csv")
+
+
+```
+
+```{r examining data frames}
+summary(nc_popcatchid)
+str(nc_popcatchid)
+str(nj_popcatchid)
+view(njfishmeasurements)
+```
+```{r nc pop column type change}
+nc_popcatchid$Date <- mdy(nc_popcatchid$Date)
+str
+```
+```{r}
+nj_popcatchid$Date <- ymd(nj_popcatchid$Date)
+```
+
+```{r}
+head(njfishmeasurements)
+nj_fishfilenames <- list.files("C:/Users/15512/Downloads/ij153-win-java8/ImageJ/FishlarvePICS")
+nj_fishfilenames.r <- nj_fishfilenames[1:441]
+nrow(njfishmeasurements)
+njfishmeasurements$filename <- nj_fishfilenames.r
+
+```
+
