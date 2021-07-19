@@ -6,36 +6,73 @@ output: html_notebook
 library(tidyverse)
 library(lubridate)
 library(ggplot2)
-nj_temp <- read.csv("env_17.csv") #nj excel file of catch temperature
-nc_temp <- read.csv("nc_temp_final.csv") #nc excel file of catch temperature
-nj_popcatchid <- read.csv("icthy_data_micrundu_17.csv") #nj file of catch number and id 
-nc_popcatchid <- read.csv("NC_Fish_Spp_ID_2017_Micrundu.csv") # nc file of catch number and id 
-njfishmeasurements <- read.csv("Njfishdataedit.csv")
+NJ_temp <- read.csv("env_17.csv") #NJ excel file of catch temperature
+NC_temp <- read.csv("NC_temp_final.csv") #NC excel file of catch temperature
+NJ_popcatchid <- read.csv("nj_popdata.final.csv") #NJ file of catch number and id 
+NC_popcatchid <- read.csv("nc_popdata.final.csv") # NC file of catch number and id 
+NJfishmeasurements <- read.csv("Njfishdataedit.csv") #NJ measurements
 
 
 ```
 
 ```{r examining data frames}
-summary(nc_popcatchid)
-str(nc_popcatchid)
-str(nj_popcatchid)
-view(njfishmeasurements)
+summary(NC_popcatchid)
+str(NC_popcatchid)
+str(NJ_popcatchid)
+
+
 ```
-```{r nc pop column type change}
-nc_popcatchid$Date <- mdy(nc_popcatchid$Date)
+Reduce NJ temp data
+```{r NJ temp data reduce}
+head(NJ_temp)
+#fix date
+NJ_temp$Date <- ymd(NJ_temp$Date)
+
+#reduce to columns we actually need
+NJ_temp.r <- NJ_temp %>%
+  select(Date, SuTemp)
+
+#also, add region column
+NJ_temp.r$region <- "NJ"
+```
+
+Reduce NC temp data
+```{r NC temp data reduce}
+head(NC_temp)
+
+#fix date
+NC_temp$Date <- ymd(NC_temp$date)
+
+#I notice that we have many measurements for a single day, let's take the average for each day
+NC_temp.r <- NC_temp %>% #take NC_temp data frame and then...
+  group_by(Date) %>% #group by Date of measurement
+  summarise(SST = mean(WTMP_avg)) #take the average value for each Date and put into column SST (sea surface temperature)
+
+#also, add new region column
+NC_temp.r$region <- "NC"
+```
+
+
+```{r NC pop column type change}
+NC_popcatchid$Date <- mdy(NC_popcatchid$Date)
 str
 ```
 ```{r}
-nj_popcatchid$Date <- ymd(nj_popcatchid$Date)
+NJ_popcatchid$Date <- ymd(NJ_popcatchid$Date)
 ```
 
 ```{r prepping measurement data for new jersey measurements}
-head(njfishmeasurements)
-nj_fishfilenames <- list.files("C:/Users/15512/Downloads/ij153-win-java8/ImageJ/FishlarvePICS")
-nj_fishfilenames.r <- nj_fishfilenames[1:441]
-save(nj_fishfilenames.r, "nj_fishfilenames.RData")
-nrow(njfishmeasurements)
-njfishmeasurements$filename <- nj_fishfilenames.r
+head(NJfishmeasurements)
+
+#get rid of ID column 1
+NJfishmeasurements.r <- NJfishmeasurements[,-1]
+
+
+NJ_fishfilenames <- list.files("C:/Users/15512/Downloads/ij153-win-java8/ImageJ/FishlarvePICS")
+NJ_fishfilenames.r <- NJ_fishfilenames[1:441]
+save(NJ_fishfilenames.r, "NJ_fishfilenames.RData")
+nrow(NJfishmeasurements.r)
+NJfishmeasurements.r$Code <- NJ_fishfilenames.r
 
 ```
 
@@ -53,6 +90,9 @@ head(NC_key_photoid) #keep all
 #add new column for region (NC versus NJ)
 NC_key_photoid$region <- "NC"
 
+#make photo.ID into code
+names(NC_key_photoid) <- c( "Code", "Date", "region" )
+
 #new jersey
 NJ_key_photoid <- read.csv("NJ_2017_Photokey.csv")
 
@@ -64,10 +104,102 @@ head(NJ_key_photoid)
 
 #we only want Code, Tow ID and Date
 NJ_key_photoid.r <- NJ_key_photoid %>%
-  select(Code, Tow_ID,Date)
+  select(Code,Date)
 
 # we also want to add a new column for region (NC versus NJ)
 NJ_key_photoid.r$region <- "NJ"
 
 ```
 
+Combine all tables we need for NJ: temperature, photo key, and measurements
+```{r combine NJ data tables}
+#temperature: NJ_temp.r
+#measurements: NJfishmeasurements.r
+#photokey: NJ_key_photoid.r
+
+#what are the column names again?
+head(NJ_temp.r) 
+#let's change SuTemp to SST
+names(NJ_temp.r) <- c("Date","SST","region")
+
+head(NJfishmeasurements.r)
+
+head(NJ_key_photoid.r)
+
+```
+Merge tables for NJ
+```{r merge tables NJ}
+#merge photo id with measurements
+NJ_photoid_measurements <- inner_join(NJfishmeasurements.r,NJ_key_photoid.r, by = "Code")
+
+#merge above with temp data
+
+NJ_data_final <- inner_join(NJ_photoid_measurements, NJ_temp.r, by = c("Date","region","Code"))
+
+```
+
+
+Combine all tables we need for NC
+```{r combine NC data tables}
+#temperature: NC_temp.r
+#measurements: NCfishmeasurements
+#photokey: NC_key_photoid
+
+#what are the column names again?
+head(NC_temp.r) 
+
+head(NCfishmeasurements)
+
+head(NC_key_photoid)
+```
+
+Merge tables for NC
+```{r merge tables NC}
+#merge photo id with measurements
+NC_photoid_measurements <- inner_join(NCfishmeasurements, NC_key_photoid, by = "Code")
+
+#merge above with temp data
+
+NC_data_final <- inner_join(NC_photoid_measurements, NC_temp.r, by = c("Date","region","Code"))
+
+```
+
+Finally, we need to merge the NJ data table with the NC datatable
+
+```{r final merge}
+larval_data_final <- rbind(NC_data_final, NJ_data_final)
+```
+
+---------
+
+##Data Analysis for location, date, temperature, number of fish, and morphology
+
+Question?
+
+Graph
+
+Statistics
+
+-----------
+Question? 
+
+Graph
+
+Statistics
+
+---------
+
+Use ggplot() to graph, this [CheatSheet](https://www.maths.usyd.edu.au/u/UG/SM/STAT3022/r/current/Misc/data-visualization-2.1.pdf) will be helpful!
+
+
+
+Some statistical tests that will be helpful:
+
+Are these two groups different?
+- # independent 2-group t-test
+- t.test(y1,y2)
+
+To visualize different variables it may be helpful to use:
+- scatter plots (i.e.Date versus morphology)
+- PCA (does fish morphology group by region)
+- box plots (i.e.Region versus morphology)
