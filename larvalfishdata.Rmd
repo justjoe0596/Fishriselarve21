@@ -168,6 +168,25 @@ Finally, we need to merge the NJ data table with the NC datatable
 
 ```{r final merge}
 larval_data_final <- rbind(NC_data_final, NJ_data_final)
+
+```
+
+Fisher and Hogan 2007 Highlight some important ratios, so we'll calculate those as well. Specifically, we want to look at "Overall, we found that a predictive model incorporating total length (TL), the square of caudal peduncle depth factor (CPDF2) and aspect ratio (AR) can be used to accurately predict swimming performance of a wide range of fish families..."
+
+Morphometric ratios
+- Muscle ratio (MR) MA/BA
+- Propulsive ratio (PR) PA/BA
+- Fineness ratio (FR) TL/[(BW+BD)/2]
+- Aspect ratio (AR) (CFD/CFA) ^(1/2)
+- Caudal peduncle depth factor (CPDF) CPD/BD** note, was this  measured correctly?
+
+```{r add ratio columns }
+larval_data_final$muscle_ratio <- musclearea/bodyarea
+larval_data_final$propulsive_ratio <- propulsivearea/bodyarea
+larval_data_final$fineness_ratio <- totallength/((bodywidth + bodydepthpectoral)/2)
+larval_data_final$aspect_ratio <- (caudalpeduncledepth/caudalfinarea)^0.5
+larval_data_final$caudal_peduncle_dfactor <- caudalpeduncledepth/bodydepth
+
 ```
 
 ---------
