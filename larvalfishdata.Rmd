@@ -7,7 +7,7 @@ library(tidyverse)
 library(lubridate)
 library(ggplot2)
 nj_temp <- read.csv("env_17.csv") #nj excel file of catch temperature
-nc_temp <- read.csv("NOAA_beaufort_temp.csv") #nc excel file of catch temperature
+nc_temp <- read.csv("nc_temp_final.csv") #nc excel file of catch temperature
 nj_popcatchid <- read.csv("icthy_data_micrundu_17.csv") #nj file of catch number and id 
 nc_popcatchid <- read.csv("NC_Fish_Spp_ID_2017_Micrundu.csv") # nc file of catch number and id 
 njfishmeasurements <- read.csv("Njfishdataedit.csv")
@@ -29,12 +29,45 @@ str
 nj_popcatchid$Date <- ymd(nj_popcatchid$Date)
 ```
 
-```{r}
+```{r prepping measurement data for new jersey measurements}
 head(njfishmeasurements)
 nj_fishfilenames <- list.files("C:/Users/15512/Downloads/ij153-win-java8/ImageJ/FishlarvePICS")
 nj_fishfilenames.r <- nj_fishfilenames[1:441]
+save(nj_fishfilenames.r, "nj_fishfilenames.RData")
 nrow(njfishmeasurements)
 njfishmeasurements$filename <- nj_fishfilenames.r
+
+```
+
+Bring in photo keys for North Carolina and for New Jersey
+```{r bring in photo keys fix date}
+#north carolina
+NC_key_photoid <- read.csv("NC_key_photoid.csv")
+
+#fix date
+NC_key_photoid$Date <- mdy(NC_key_photoid$Date)
+
+#what are all of the column names
+head(NC_key_photoid) #keep all
+
+#add new column for region (NC versus NJ)
+NC_key_photoid$region <- "NC"
+
+#new jersey
+NJ_key_photoid <- read.csv("NJ_2017_Photokey.csv")
+
+#fix date
+NJ_key_photoid$Date <- mdy(NJ_key_photoid$Tow.Date)
+
+#what are the column names
+head(NJ_key_photoid)
+
+#we only want Code, Tow ID and Date
+NJ_key_photoid.r <- NJ_key_photoid %>%
+  select(Code, Tow_ID,Date)
+
+# we also want to add a new column for region (NC versus NJ)
+NJ_key_photoid.r$region <- "NJ"
 
 ```
 
