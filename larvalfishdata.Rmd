@@ -11,7 +11,7 @@ NC_temp <- read.csv("NC_temp_final.csv") #NC excel file of catch temperature
 NJ_popcatchid <- read.csv("nj_popdata.final.csv") #NJ file of catch number and id 
 NC_popcatchid <- read.csv("nc_popdata.final.csv") # NC file of catch number and id 
 NJfishmeasurements <- read.csv("Njfishdataedit.csv") #NJ measurements
-
+NCfishmesurements <- read.csv("Ncfishdatamesurements.csv") #NC mesurements
 
 ```
 
@@ -19,14 +19,14 @@ NJfishmeasurements <- read.csv("Njfishdataedit.csv") #NJ measurements
 summary(NC_popcatchid)
 str(NC_popcatchid)
 str(NJ_popcatchid)
-
-
+str(NCfishmesurements)
+view(NCfishmesurements) #viewsspreed
 ```
 Reduce NJ temp data
 ```{r NJ temp data reduce}
-head(NJ_temp)
+head(NJ_temp) #first5rows - ,10 to increase rows
 #fix date
-NJ_temp$Date <- ymd(NJ_temp$Date)
+NJ_temp$Date <- ymd(NJ_temp$Date) #replacementsamename
 
 #reduce to columns we actually need
 NJ_temp.r <- NJ_temp %>%
@@ -55,7 +55,6 @@ NC_temp.r$region <- "NC"
 
 ```{r NC pop column type change}
 NC_popcatchid$Date <- mdy(NC_popcatchid$Date)
-str
 ```
 ```{r}
 NJ_popcatchid$Date <- ymd(NJ_popcatchid$Date)
@@ -65,16 +64,58 @@ NJ_popcatchid$Date <- ymd(NJ_popcatchid$Date)
 head(NJfishmeasurements)
 
 #get rid of ID column 1
-NJfishmeasurements.r <- NJfishmeasurements[,-1]
+NJfishmeasurements.r <- NJfishmeasurements[,-1] #before coma=rows after=columns - delete
 
 
-NJ_fishfilenames <- list.files("C:/Users/15512/Downloads/ij153-win-java8/ImageJ/FishlarvePICS")
+NJ_fishfilenames <- list.files("C:/Users/15512/Downloads/ij153-win-java8/ImageJ/FishlarvePICS") #may have to go into fileexplore and delete 204
 NJ_fishfilenames.r <- NJ_fishfilenames[1:441]
-save(NJ_fishfilenames.r, "NJ_fishfilenames.RData")
+save(NJ_fishfilenames.r, file = "NJ_fishfilenames.RData")
 nrow(NJfishmeasurements.r)
-NJfishmeasurements.r$Code <- NJ_fishfilenames.r
+NJfishmeasurements.r$Code <- NJ_fishfilenames.r #would not work if the 441 didnot match up in measurements
+view(NJfishmeasurements.r)
 
+
+
+?gsub
+NJfishmeasurements.r$code2 <- gsub("s.jpg", "",NJfishmeasurements.r$Code)
+NJfishmeasurements.r$code3 <- gsub("s..jpg", "",NJfishmeasurements.r$code2)
+NJfishmeasurements.r$code4 <- gsub("t.jpg", "",NJfishmeasurements.r$code3)
+NJfishmeasurements.r <- subset(NJfishmeasurements.r, select= -c(Code, code2, code3))
+view(NJfishmeasurements.r)
+NJfishmeasurements.r$Code <- NJfishmeasurements.r$code4
+
+NJfishmeasurements.final <- NJfishmeasurements.r %>% 
+  group_by(Code) %>% 
+summarise(across(.cols=1:interorbitalwidth, .fns=~mean(.x, na.rm = TRUE), .names = "{.col}"))
+
+  
 ```
+```{r prepping measurement data for North Carolina measurements}
+head(NCfishmesurements)
+
+#get rid of ID column 1
+NCfishmeasurements.r <- NCfishmesurements[,-1] #before coma=rows after=columns - delete
+
+
+NC_fishfilenames <- list.files("C:/Users/15512/Downloads/ij153-win-java8/ImageJ/NC fish pics")
+NC_fishfilenames.r <- NC_fishfilenames[1:93]
+save(NC_fishfilenames.r, file = "NC_fishfilenames.RData")
+nrow(NCfishmeasurements.r)
+NCfishmeasurements.r$Code <- NC_fishfilenames.r #would not work if the 441 didnot match up in measurements
+view(NCfishmeasurements.r)
+
+
+?substr
+NCfishmeasurements.r$code2 <- substr(NCfishmeasurements.r$Code,1, 15)
+NCfishmeasurements.r <- subset(NCfishmeasurements.r, select= -c(Code))
+view(NCfishmeasurements.r)
+NCfishmeasurements.r$Code <- NCfishmeasurements.r$code2
+
+NCfishmeasurements.final <- NCfishmeasurements.r %>% 
+  group_by(Code) %>% 
+summarise(across(.cols=1:Eyedimatere, .fns=~mean(.x, na.rm = TRUE), .names = "{.col}"))
+```
+
 
 Bring in photo keys for North Carolina and for New Jersey
 ```{r bring in photo keys fix date}
@@ -114,7 +155,7 @@ NJ_key_photoid.r$region <- "NJ"
 Combine all tables we need for NJ: temperature, photo key, and measurements
 ```{r combine NJ data tables}
 #temperature: NJ_temp.r
-#measurements: NJfishmeasurements.r
+#measurements: NJfishmeasurements.final
 #photokey: NJ_key_photoid.r
 
 #what are the column names again?
@@ -122,19 +163,21 @@ head(NJ_temp.r)
 #let's change SuTemp to SST
 names(NJ_temp.r) <- c("Date","SST","region")
 
-head(NJfishmeasurements.r)
-
+head(NJfishmeasurements.final)
+NJfishmeasurements.final$Code <- as.numeric(NJfishmeasurements.final$Code)
 head(NJ_key_photoid.r)
+
+view(NJfishmeasurements.final)
 
 ```
 Merge tables for NJ
 ```{r merge tables NJ}
 #merge photo id with measurements
-NJ_photoid_measurements <- inner_join(NJfishmeasurements.r,NJ_key_photoid.r, by = "Code")
+NJ_photoid_measurements <- inner_join(NJfishmeasurements.final,NJ_key_photoid.r, by = "Code")
 
 #merge above with temp data
 
-NJ_data_final <- inner_join(NJ_photoid_measurements, NJ_temp.r, by = c("Date","region","Code"))
+NJ_data_final <- inner_join(NJ_photoid_measurements, NJ_temp.r, by = c("Date","region"))
 
 ```
 
@@ -142,13 +185,13 @@ NJ_data_final <- inner_join(NJ_photoid_measurements, NJ_temp.r, by = c("Date","r
 Combine all tables we need for NC
 ```{r combine NC data tables}
 #temperature: NC_temp.r
-#measurements: NCfishmeasurements
+#measurements: NCfishmeasurements.final
 #photokey: NC_key_photoid
 
 #what are the column names again?
 head(NC_temp.r) 
-
-head(NCfishmeasurements)
+NC_temp.r$region <- "NC"
+head(NCfishmeasurements.final)
 
 head(NC_key_photoid)
 ```
@@ -156,11 +199,11 @@ head(NC_key_photoid)
 Merge tables for NC
 ```{r merge tables NC}
 #merge photo id with measurements
-NC_photoid_measurements <- inner_join(NCfishmeasurements, NC_key_photoid, by = "Code")
+NC_photoid_measurements <- inner_join(NCfishmeasurements.final, NC_key_photoid, by = "Code")
 
 #merge above with temp data
 
-NC_data_final <- inner_join(NC_photoid_measurements, NC_temp.r, by = c("Date","region","Code"))
+NC_data_final <- inner_join(NC_photoid_measurements, NC_temp.r, by = c("Date","region"))
 
 ```
 
@@ -193,18 +236,44 @@ larval_data_final$caudal_peduncle_dfactor <- caudalpeduncledepth/bodydepth
 
 ##Data Analysis for location, date, temperature, number of fish, and morphology
 
-Question?
+Question? What is distrubituion of standards lengths in NJ? 
 
 Graph
+```{r}
+ggplot(NJ_data_final) + 
+  geom_histogram(aes(x = standardlength)) +
+  theme_classic()
+```
+
 
 Statistics
 
 -----------
-Question? 
+Question? How does caudal height change over time? 
 
 Graph
+```{r}
+ggplot(NC_data_final) + 
+  geom_point(aes(x = Date, y = Caudheight)) + 
+  geom_smooth(aes(x = Date, y = Caudheight), method= "lm") +
+  theme_classic()
+```
+
 
 Statistics
+
+Question: How does caudal height correlate with temperature?
+
+```{r}
+ggplot(NC_data_final) + 
+  geom_point(aes(x = SST, y = Caudheight)) + 
+  geom_smooth(aes(x = SST, y = Caudheight), method= "lm") +
+  xlim(10,30) + #sets min and max
+  theme_classic()
+```
+
+Question
+
 
 ---------
 
