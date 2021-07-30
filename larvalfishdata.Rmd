@@ -54,7 +54,7 @@ NC_temp.r$region <- "NC"
 
 
 ```{r NC population column type change}
-NC_popcatchid$Date <- mdy(NC_popcatchid$Date)
+NC_popcatchid$Date <- ymd(NC_popcatchid$Date)
 ```
 
 
@@ -124,7 +124,7 @@ Bring in photo keys for North Carolina and for New Jersey
 NC_key_photoid <- read.csv("NC_key_photoid.csv")
 
 #fix date
-NC_key_photoid$Date <- mdy(NC_key_photoid$Date)
+NC_key_photoid$Date <- mdy(NC_key_photoid$ï..Date.Collected)
 
 #what are all of the column names
 head(NC_key_photoid) #keep all
@@ -201,11 +201,14 @@ head(NC_key_photoid)
 Merge tables for NC
 ```{r merge tables NC}
 #merge photo id with measurements
-NC_photoid_measurements <- inner_join(NCfishmeasurements.final, NC_key_photoid, by = "Fish.ID")
+NC_photoid_measurements <- inner_join(NCfishmeasurements.final, NC_key_photoid, by = c("Fish.ID","region"))
 
 #merge above with temp data
 
 NC_data_final <- inner_join(NC_photoid_measurements, NC_temp.r, by = c("Date","region"))
+
+colnames(NC_photoid_measurements)
+colnames(NC_temp.r)
 
 ```
 
@@ -213,6 +216,8 @@ Match column names and order from two data frames
 ```{r}
 colnames(NJ_data_final)
 colnames(NC_data_final)
+colnames(NC_data_final)[16] <- "Date.Collected"
+
 ```
 
 NJ:
@@ -266,6 +271,10 @@ Finally, we need to merge the NJ data table with the NC datatable
 ```{r final merge}
 larval_data_final <- rbind(NC_data_final.reorder, NJ_data_final)
 
+#save(larval_data_final, file = "larval_data_final.RData")
+
+load("larval_data_final.RData")
+Larvalpopulationdatafinal <- rbind(NJ_popcatchid, NC_popcatchid)
 ```
 
 Fisher and Hogan 2007 Highlight some important ratios, so we'll calculate those as well. Specifically, we want to look at "Overall, we found that a predictive model incorporating total length (TL), the square of caudal peduncle depth factor (CPDF2) and aspect ratio (AR) can be used to accurately predict swimming performance of a wide range of fish families..."
@@ -281,14 +290,46 @@ Morphometric ratios
 larval_data_final$muscle_ratio <- larval_data_final$musclearea/larval_data_final$bodyarea
 larval_data_final$propulsive_ratio <- larval_data_final$propulsivearea/larval_data_final$bodyarea
 larval_data_final$fineness_ratio <- larval_data_final$totallength/((larval_data_final$bodywidth + larval_data_final$bodydepthpectoral)/2)
-larval_data_final$aspect_ratio <- (larval_data_final$caudalpeduncledepth/larval_data_final$caudalfinarea)^0.5
+larval_data_final$aspect_ratio <- larval_data_final$caudalpeduncledepth/larval_data_final$caudalfinarea^0.5
 larval_data_final$caudal_peduncle_dfactor <- larval_data_final$caudalpeduncledepth/larval_data_final$bodydepthpectoral
+
 
 ```
 
 ---------
 
 ##Data Analysis for location, date, temperature, number of fish, and morphology
+
+Question: Is there a correlation between aspect ratio and SST? 
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = SST, y = aspect_ratio, color = region)) + 
+  geom_smooth(aes(x = SST, y = aspect_ratio, color = region), method= "lm") +
+  theme_dark()
+  
+ggplot(larval_data_final) + 
+  geom_point(aes(x = SST, y = aspect_ratio, color = region)) + 
+  geom_smooth(aes(x = SST, y = aspect_ratio, color = region), method= "lm") +
+  theme_get()
+```
+
+Question: Is there relation between total lengeth and date? 
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = SST, y = totallength, color = region)) + 
+  geom_smooth(aes(x = SST, y = totallength, color = region), method= "lm") +
+   xlim(10,30)
+  theme_dark()
+```
+
+Is there a relationship between fitnessratio and date? 
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = SST, y = fineness_ratio, color = region)) + 
+  geom_smooth(aes(x = SST, y = fineness_ratio, color = region), method= "lm") +
+    xlim(10,30)
+  theme_dark()
+```
 
 Question? What is distrubituion of standards lengths in NJ? 
 
@@ -341,11 +382,128 @@ ggplot(larval_data_final) +
   theme_classic()
 ```
 
-Question
+Question: Is the Muslce ratio in NJ and NC consistant over time? 
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = Date, y = muscle_ratio, color = region)) + 
+  geom_smooth(aes(x = Date, y = muscle_ratio, color = region), method= "lm") +
+  theme_classic()
+  
+  ggplot(larval_data_final) +
+   geom_boxplot(aes(x = region, y = muscle_ratio)) +
+  theme_classic()
+  
+  larval_data_final_NJ <- larval_data_final %>% filter(region == "NJ")
+  larval_data_final_NC <- larval_data_final %>% filter(region == "NC")
+
+  
+  t.test(larval_data_final_NJ$muscle_ratio, larval_data_final_NC$muscle_ratio)
+
+view(larval_data_final)
+```
 
 
 ---------
 
+Question: How does caudal height correlate with temperature?
+
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = SST, y = caudalfinheight, color = region)) + 
+  geom_smooth(aes(x = SST, y = caudalfinheight, color = region), method= "lm") +
+  xlim(10,30) + #sets min and max
+  theme_classic()
+```
+Is there a relationship between population size and sst?
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = n, y = SST, color = region)) + 
+  geom_smooth(aes(x = n , y = SST, color = region), method= "lm") +
+  theme_classic()
+```
+
+
+Question: Is the Caudalpadundactor in NJ and NC consistant over time? 
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = Date, y = caudal_peduncle_dfactor, color = region)) + 
+  geom_smooth(aes(x = Date, y = caudal_peduncle_dfactor, color = region), method= "lm") +
+  theme_dark()
+  
+  ggplot(larval_data_final) +
+   geom_boxplot(aes(x = region, y = caudal_peduncle_dfactor)) +
+  theme_classic()
+  
+  t.test(larval_data_final_NJ$caudal_peduncle_dfactor, larval_data_final_NC$caudal_peduncle_dfactor)
+
+view(larval_data_final)
+```
+
+Question: Is the Aspectratio in NJ and NC consistant over time? 
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = Date, y = aspect_ratio, color = region)) + 
+  geom_smooth(aes(x = Date, y = aspect_ratio, color = region), method= "lm") +
+  theme_bw()
+  
+  ggplot(larval_data_final) +
+   geom_boxplot(aes(x = region, y = aspect_ratio)) +
+  theme_bw()
+  
+  t.test(larval_data_final_NJ$aspect_ratio, larval_data_final_NC$aspect_ratio)
+
+view(larval_data_final)
+```
+
+
+Question: Is the Total Lengeth in NJ and NC consistant over time? 
+```{r}
+ggplot(larval_data_final) + 
+  geom_point(aes(x = Date, y = totallength, color = region)) + 
+  geom_smooth(aes(x = Date, y = totallength, color = region), method= "lm") +
+  theme_bw()
+  
+  ggplot(larval_data_final) +
+   geom_boxplot(aes(x = region, y = totallength)) +
+  theme_bw()
+  
+  t.test(larval_data_final_NJ$totallength, larval_data_final_NC$totallength)
+
+Question: Is there a relationship between population size and date?
+
+
+```{r}
+ggplot(Larvalpopulationdatafinal) +
+geom_point(aes(x = Date, y = log(n) ))+
+facet_wrap(~region) +
+theme_()
+
+ggplot(Larvalpopulationdatafinal) +
+geom_point(aes(x = Date, y = log(n), color=region ))+
+theme_dark()
+```
+
+Question: Is there a relationship between date and temperature?
+```{r}
+  
+  ggplot(larval_data_final) +
+   geom_boxplot(aes(x = region, y = SST)) +
+  ylim(0, 30)+
+  theme_bw()
+  
+  t.test(larval_data_final_NJ$SST, larval_data_final_NC$SST)
+
+  ggplot(larval_data_final) +
+geom_smooth(aes(x = region, y = SST , color=region ))+
+facet_wrap(~region) +
+ylim(0, 30)+
+theme_bw()
+
+ggplot(Larvalpopulationdatafinal) +
+geom_point(aes(x = Date, y = log(n), color=region ))+
+theme_bw()
+```
+---------
 Use ggplot() to graph, this [CheatSheet](https://www.maths.usyd.edu.au/u/UG/SM/STAT3022/r/current/Misc/data-visualization-2.1.pdf) will be helpful!
 
 
